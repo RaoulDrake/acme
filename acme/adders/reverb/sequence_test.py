@@ -17,7 +17,7 @@
 
 This script adapts https://github.com/deepmind/acme/blob/master/acme/adders/reverb/sequence_test.py
 and
-    -   modifies the EarlyTerminationNoPadding testcase
+    -   modifies the PeriodTwo and EarlyTerminationNoPadding testcases
         to reflect the behaviour resulting from the padding bugfix in SequenceAdder
     -   adds a new PaddingPeriodThree testcase
 """
@@ -77,7 +77,12 @@ TEST_CASES = [
             [
                 (1, 0, 2.0, 1.0, True, ()),
                 (2, 0, 3.0, 1.0, False, ()),
+                (3, 0, 5.0, 1.0, False, ())
+            ],
+            [
                 (3, 0, 5.0, 1.0, False, ()),
+                (4, 0, 7.0, 0.0, False, ()),
+                (5, 0, 0.0, 0.0, False, ())
             ],
         ),
     ),
