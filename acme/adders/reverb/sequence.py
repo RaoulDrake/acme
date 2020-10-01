@@ -16,6 +16,13 @@
 """Sequence adders.
 
 This implements adders which add sequences or partial trajectories.
+
+This module is almost identical to the original acme/adders/reverb/sequence.py, with one bugfix:
+In the original module, sequences were never padded because the calculation of how many steps need to be padded
+did not work as expected: with an increasing step, the result of this calculation in the original would eventually
+become negative, with the result that padding never happens.
+This edit of the module fixes this bug and always pads with zeros, if enabled.
+The Bugfix can be found in lines 107-117.
 """
 
 from typing import Optional
@@ -59,12 +66,12 @@ class SequenceAdder(base.ReverbAdder):
         sequence in the episode may have length less than `sequence_length`.
     """
     super().__init__(
-        client=client,
-        buffer_size=sequence_length,
-        max_sequence_length=sequence_length,
-        delta_encoded=delta_encoded,
-        chunk_length=chunk_length,
-        priority_fns=priority_fns)
+      client=client,
+      buffer_size=sequence_length,
+      max_sequence_length=sequence_length,
+      delta_encoded=delta_encoded,
+      chunk_length=chunk_length,
+      priority_fns=priority_fns)
 
     self._period = period
     self._step = 0
@@ -97,7 +104,17 @@ class SequenceAdder(base.ReverbAdder):
       if self._step <= self._max_sequence_length:
         padding = self._max_sequence_length - self._step
       else:
-        padding = self._period - (self._step - self._max_sequence_length)
+        # The following is the original line from acme.adders.reverb.sequence.py.
+        # However, it does not work as expected: as self._step grows, padding will become
+        # a negative value at some point and as a result, the for loop below will never be
+        # entered because of the negative value passed to range().
+
+        # padding = self._period - (self._step - self._max_sequence_length)
+
+        # The following 3 lines work as expected and always pad to the fixed length (with zeros).
+        padding = 0
+        if (self._step - self._max_sequence_length) % self._period != 0:
+          padding = self._period - ((self._step - self._max_sequence_length) % self._period)
 
       # Pad with zeros to get a full sequence.
       for _ in range(padding):
@@ -108,20 +125,21 @@ class SequenceAdder(base.ReverbAdder):
     # Write priorities for the sequence.
     self._maybe_add_priorities()
 
-  def _maybe_add_priorities(self):
-    if not (
-        # Write the first time we hit the max sequence length...
-        self._step == self._max_sequence_length or
-        # ... or every `period`th time after hitting max length.
-        (self._step > self._max_sequence_length and
-         (self._step - self._max_sequence_length) % self._period == 0)):
-      return
 
-    # Compute priorities for the buffer.
-    steps = list(self._buffer)
-    num_steps = len(steps)
-    table_priorities = utils.calculate_priorities(self._priority_fns, steps)
+def _maybe_add_priorities(self):
+  if not (
+      # Write the first time we hit the max sequence length...
+      self._step == self._max_sequence_length or
+      # ... or every `period`th time after hitting max length.
+      (self._step > self._max_sequence_length and
+       (self._step - self._max_sequence_length) % self._period == 0)):
+    return
 
-    # Create a prioritized item for each table.
-    for table_name, priority in table_priorities.items():
-      self._writer.create_item(table_name, num_steps, priority)
+  # Compute priorities for the buffer.
+  steps = list(self._buffer)
+  num_steps = len(steps)
+  table_priorities = utils.calculate_priorities(self._priority_fns, steps)
+
+  # Create a prioritized item for each table.
+  for table_name, priority in table_priorities.items():
+    self._writer.create_item(table_name, num_steps, priority)

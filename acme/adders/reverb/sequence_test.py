@@ -13,7 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Tests for sequence adders."""
+"""Tests for sequence adders.
+
+This script adapts https://github.com/deepmind/acme/blob/master/acme/adders/reverb/sequence_test.py
+and
+    -   modifies the EarlyTerminationNoPadding testcase
+        to reflect the behaviour resulting from the padding bugfix in SequenceAdder
+    -   adds a new PaddingPeriodThree testcase
+"""
 
 from absl.testing import absltest
 from absl.testing import parameterized
@@ -36,7 +43,7 @@ TEST_CASES = [
             (0, dm_env.termination(reward=7.0, observation=5)),
         ),
         expected_sequences=(
-            # (observation, action, reward, discount, extra)
+            # (observation, action, reward, discount, start_of_episode, extra)
             [
                 (1, 0, 2.0, 1.0, True, ()),
                 (2, 0, 3.0, 1.0, False, ()),
@@ -66,12 +73,30 @@ TEST_CASES = [
             (0, dm_env.termination(reward=7.0, observation=5)),
         ),
         expected_sequences=(
-            # (observation, action, reward, discount, extra)
+            # (observation, action, reward, discount, start_of_episode, extra)
             [
                 (1, 0, 2.0, 1.0, True, ()),
                 (2, 0, 3.0, 1.0, False, ()),
                 (3, 0, 5.0, 1.0, False, ()),
             ],
+        ),
+    ),
+    dict(
+        testcase_name='PaddingPeriodThree',
+        sequence_length=4,
+        period=3,
+        first=dm_env.restart(1),
+        steps=(
+            (0, dm_env.transition(reward=2.0, observation=2)),
+            (0, dm_env.transition(reward=3.0, observation=3)),
+            (0, dm_env.transition(reward=5.0, observation=4)),
+            (0, dm_env.transition(reward=7.0, observation=5)),
+            (0, dm_env.transition(reward=9.0, observation=6)),
+            (0, dm_env.transition(reward=11.0, observation=7)),
+            (0, dm_env.termination(reward=13.0, observation=8)),
+        ),
+        expected_sequences=(
+            # (observation, action, reward, discount, start_of_episode, extra)
             [
                 (3, 0, 5.0, 1.0, False, ()),
                 (4, 0, 7.0, 0.0, False, ()),
@@ -89,7 +114,7 @@ TEST_CASES = [
             (0, dm_env.termination(reward=3.0, observation=3)),
         ),
         expected_sequences=(
-            # (observation, action, reward, discount, extra)
+            # (observation, action, reward, discount, start_of_episode, extra)
             [
                 (1, 0, 2.0, 1.0, True, ()),
                 (2, 0, 3.0, 0.0, False, ()),
@@ -106,7 +131,7 @@ TEST_CASES = [
             (0, dm_env.termination(reward=3.0, observation=3)),
         ),
         expected_sequences=(
-            # (observation, action, reward, discount, extra)
+            # (observation, action, reward, discount, start_of_episode, extra)
             [
                 (1, 0, 2.0, 1.0, True, ()),
                 (2, 0, 3.0, 0.0, False, ()),
@@ -123,7 +148,7 @@ TEST_CASES = [
             (0, dm_env.termination(reward=3.0, observation=3)),
         ),
         expected_sequences=(
-            # (observation, action, reward, discount, extra)
+            # (observation, action, reward, discount, start_of_episode, extra)
             [
                 (1, 0, 2.0, 1.0, True, ()),
                 (2, 0, 3.0, 0.0, False, ()),
@@ -141,7 +166,7 @@ TEST_CASES = [
             (0, dm_env.termination(reward=3.0, observation=3)),
         ),
         expected_sequences=(
-            # (observation, action, reward, discount, extra)
+            # (observation, action, reward, discount, start_of_episode, extra)
             [
                 (1, 0, 2.0, 1.0, True, ()),
                 (2, 0, 3.0, 0.0, False, ()),
@@ -159,12 +184,11 @@ TEST_CASES = [
             (0, dm_env.termination(reward=3.0, observation=3)),
         ),
         expected_sequences=(
-            # (observation, action, reward, discount, extra)
-            [
-                (1, 0, 2.0, 1.0, True, ()),
-                (2, 0, 3.0, 0.0, False, ()),
-                (3, 0, 0.0, 0.0, False, ()),
-            ],),
+            # None, since
+            # a) we do not pad and
+            # b) not enough steps were appended to the writer, so writer.create_item()
+            #    in SequenceAdder._maybe_add_priorities() never gets called.
+            ),
         pad_end_of_episode=False,
     ),
 ]
