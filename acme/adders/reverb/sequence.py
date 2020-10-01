@@ -126,20 +126,20 @@ class SequenceAdder(base.ReverbAdder):
     self._maybe_add_priorities()
 
 
-def _maybe_add_priorities(self):
-  if not (
-      # Write the first time we hit the max sequence length...
-      self._step == self._max_sequence_length or
-      # ... or every `period`th time after hitting max length.
-      (self._step > self._max_sequence_length and
-       (self._step - self._max_sequence_length) % self._period == 0)):
-    return
+  def _maybe_add_priorities(self):
+    if not (
+        # Write the first time we hit the max sequence length...
+        self._step == self._max_sequence_length or
+        # ... or every `period`th time after hitting max length.
+        (self._step > self._max_sequence_length and
+         (self._step - self._max_sequence_length) % self._period == 0)):
+      return
 
-  # Compute priorities for the buffer.
-  steps = list(self._buffer)
-  num_steps = len(steps)
-  table_priorities = utils.calculate_priorities(self._priority_fns, steps)
+    # Compute priorities for the buffer.
+    steps = list(self._buffer)
+    num_steps = len(steps)
+    table_priorities = utils.calculate_priorities(self._priority_fns, steps)
 
-  # Create a prioritized item for each table.
-  for table_name, priority in table_priorities.items():
-    self._writer.create_item(table_name, num_steps, priority)
+    # Create a prioritized item for each table.
+    for table_name, priority in table_priorities.items():
+      self._writer.create_item(table_name, num_steps, priority)
